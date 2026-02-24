@@ -1,0 +1,36 @@
+name: Custom Windows Build
+on: [workflow_dispatch]
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python & Conan
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Conan
+        run: |
+          pip install "conan==1.60.1"
+          conan profile new default --detect
+          conan profile update settings.compiler.cppstd=17 default
+          # Force Conan center to avoid 403 errors from other remotes
+          conan remote list
+          conan config set general.revisions_enabled=1
+
+      - name: Build CuraEngine
+        run: |
+          mkdir build
+          cd build
+          conan install .. --build=missing -s build_type=Release -s compiler.cppstd=17
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
+          cmake --build . --config Release --parallel 2
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CuraEngine-Windows
+          path: build/Release/CuraEngine.exe
